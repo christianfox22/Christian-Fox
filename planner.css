@@ -1195,3 +1195,122 @@ button.ghost:disabled:hover {
     font-size: 0.8rem;
   }
 }
+
+/* ---------- Things to do ---------- */
+.todo {
+  margin-top: 0.6rem;
+  border-top: 1px dashed var(--line);
+  padding-top: 0.5rem;
+}
+
+.todo summary {
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--green);
+}
+
+.todo .picked {
+  color: var(--orange-deep);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.todo ol {
+  margin: 0.45rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.todo li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.todo li label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.todo li input {
+  margin-top: 0.2rem;
+  accent-color: var(--green);
+}
+
+.todo li input:checked + span {
+  font-weight: 600;
+  color: var(--green);
+}
+
+.todo li a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.8rem;
+}
+
+.todo li a:hover {
+  color: var(--orange);
+}
+
+.todo-links {
+  margin: 0.45rem 0 0;
+  font-size: 0.78rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  color: var(--muted);
+}
+
+.todo-links a {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.on-the-way {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.55rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.on-the-way button {
+  background: var(--paper);
+  color: var(--green);
+  box-shadow: inset 0 0 0 1px var(--green-soft);
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+}
+
+.settings .on-the-way button:hover,
+.on-the-way button:hover {
+  background: var(--green);
+  color: var(--paper);
+}
+
+@media print {
+  .todo li:not(:has(input:checked)) {
+    display: none;
+  }
+
+  .todo li a,
+  .todo-links,
+  .on-the-way {
+    display: none;
+  }
+}

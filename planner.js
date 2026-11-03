@@ -1,51 +1,7 @@
 (function () {
-  const CITIES = [
-    { name: "Amsterdam", country: "Netherlands", lat: 52.3676, lng: 4.9041, stay: 140, food: 55, play: 35 },
-    { name: "Athens", country: "Greece", lat: 37.9838, lng: 23.7275, stay: 95, food: 40, play: 30 },
-    { name: "Barcelona", country: "Spain", lat: 41.3874, lng: 2.1686, stay: 130, food: 50, play: 40 },
-    { name: "Belgrade", country: "Serbia", lat: 44.7866, lng: 20.4489, stay: 60, food: 30, play: 20 },
-    { name: "Berlin", country: "Germany", lat: 52.52, lng: 13.405, stay: 110, food: 45, play: 35 },
-    { name: "Bordeaux", country: "France", lat: 44.8378, lng: -0.5792, stay: 115, food: 50, play: 30 },
-    { name: "Bruges", country: "Belgium", lat: 51.2093, lng: 3.2247, stay: 120, food: 50, play: 25 },
-    { name: "Brussels", country: "Belgium", lat: 50.8503, lng: 4.3517, stay: 125, food: 50, play: 30 },
-    { name: "Budapest", country: "Hungary", lat: 47.4979, lng: 19.0402, stay: 80, food: 35, play: 25 },
-    { name: "Copenhagen", country: "Denmark", lat: 55.6761, lng: 12.5683, stay: 160, food: 65, play: 40 },
-    { name: "Dubrovnik", country: "Croatia", lat: 42.6507, lng: 18.0944, stay: 140, food: 50, play: 35 },
-    { name: "Dublin", country: "Ireland", lat: 53.3498, lng: -6.2603, stay: 145, food: 55, play: 35 },
-    { name: "Edinburgh", country: "United Kingdom", lat: 55.9533, lng: -3.1883, stay: 140, food: 50, play: 35 },
-    { name: "Florence", country: "Italy", lat: 43.7696, lng: 11.2558, stay: 140, food: 50, play: 40 },
-    { name: "Geneva", country: "Switzerland", lat: 46.2044, lng: 6.1432, stay: 190, food: 75, play: 40 },
-    { name: "Helsinki", country: "Finland", lat: 60.1699, lng: 24.9384, stay: 140, food: 55, play: 30 },
-    { name: "Istanbul", country: "Türkiye", lat: 41.0082, lng: 28.9784, stay: 90, food: 35, play: 30 },
-    { name: "Kraków", country: "Poland", lat: 50.0647, lng: 19.945, stay: 75, food: 30, play: 25 },
-    { name: "Lisbon", country: "Portugal", lat: 38.7223, lng: -9.1393, stay: 110, food: 40, play: 30 },
-    { name: "Ljubljana", country: "Slovenia", lat: 46.0569, lng: 14.5058, stay: 95, food: 40, play: 25 },
-    { name: "London", country: "United Kingdom", lat: 51.5074, lng: -0.1278, stay: 180, food: 60, play: 45 },
-    { name: "Lyon", country: "France", lat: 45.764, lng: 4.8357, stay: 120, food: 50, play: 30 },
-    { name: "Madrid", country: "Spain", lat: 40.4168, lng: -3.7038, stay: 120, food: 45, play: 35 },
-    { name: "Milan", country: "Italy", lat: 45.4642, lng: 9.19, stay: 150, food: 55, play: 40 },
-    { name: "Munich", country: "Germany", lat: 48.1351, lng: 11.582, stay: 140, food: 50, play: 35 },
-    { name: "Naples", country: "Italy", lat: 40.8518, lng: 14.2681, stay: 110, food: 40, play: 30 },
-    { name: "Nice", country: "France", lat: 43.7102, lng: 7.262, stay: 145, food: 55, play: 35 },
-    { name: "Oslo", country: "Norway", lat: 59.9139, lng: 10.7522, stay: 175, food: 70, play: 40 },
-    { name: "Palermo", country: "Italy", lat: 38.1157, lng: 13.3615, stay: 95, food: 40, play: 25 },
-    { name: "Paris", country: "France", lat: 48.8566, lng: 2.3522, stay: 170, food: 60, play: 45 },
-    { name: "Porto", country: "Portugal", lat: 41.1579, lng: -8.6291, stay: 100, food: 40, play: 25 },
-    { name: "Prague", country: "Czechia", lat: 50.0755, lng: 14.4378, stay: 100, food: 35, play: 30 },
-    { name: "Reykjavík", country: "Iceland", lat: 64.1466, lng: -21.9426, stay: 180, food: 70, play: 50 },
-    { name: "Rome", country: "Italy", lat: 41.9028, lng: 12.4964, stay: 145, food: 50, play: 40 },
-    { name: "Salzburg", country: "Austria", lat: 47.8095, lng: 13.055, stay: 130, food: 50, play: 30 },
-    { name: "Santorini", country: "Greece", lat: 36.3932, lng: 25.4615, stay: 170, food: 55, play: 40 },
-    { name: "Seville", country: "Spain", lat: 37.3891, lng: -5.9845, stay: 105, food: 40, play: 30 },
-    { name: "Split", country: "Croatia", lat: 43.5081, lng: 16.4402, stay: 110, food: 45, play: 30 },
-    { name: "Stockholm", country: "Sweden", lat: 59.3293, lng: 18.0686, stay: 160, food: 65, play: 40 },
-    { name: "Tallinn", country: "Estonia", lat: 59.437, lng: 24.7536, stay: 90, food: 40, play: 25 },
-    { name: "Valletta", country: "Malta", lat: 35.8989, lng: 14.5146, stay: 120, food: 45, play: 30 },
-    { name: "Venice", country: "Italy", lat: 45.4408, lng: 12.3155, stay: 175, food: 55, play: 40 },
-    { name: "Vienna", country: "Austria", lat: 48.2082, lng: 16.3738, stay: 130, food: 50, play: 35 },
-    { name: "Warsaw", country: "Poland", lat: 52.2297, lng: 21.0122, stay: 85, food: 35, play: 25 },
-    { name: "Zurich", country: "Switzerland", lat: 47.3769, lng: 8.5417, stay: 200, food: 80, play: 40 },
-  ];
+  const CITIES = (window.CITY_DATA || []).map(([name, country, lat, lng, stay, food, play, activities]) => ({
+    name, country, lat, lng, stay, food, play, activities: activities || [],
+  }));
 
   const MODES = ["train", "plane", "bus", "car", "ferry"];
   const MODE_COLOR = {
@@ -357,6 +313,7 @@
       food: cost.food,
       play: cost.play,
       notes: "",
+      picks: [],
     };
   }
 
@@ -396,6 +353,46 @@
 
   function sameCity(a, b) {
     return a.name === b.name && a.country === b.country;
+  }
+
+  function activitiesFor(stop) {
+    return CITIES.find((c) => sameCity(c, stop))?.activities || [];
+  }
+
+  // Built-in cities roughly on the way between two stops (not already in the trip), in travel order.
+  function stopsOnTheWay(a, b) {
+    const total = haversine(a, b);
+    if (total < 150) return [];
+    const k = Math.cos((((a.lat + b.lat) / 2) * Math.PI) / 180);
+    const P = (c) => [c.lng * k * 111.32, c.lat * 110.57];
+    const [ax, ay] = P(a);
+    const [bx, by] = P(b);
+    const dx = bx - ax;
+    const dy = by - ay;
+    const len2 = dx * dx + dy * dy;
+    return CITIES.filter((c) => !state.stops.some((s) => sameCity(s, c)))
+      .map((c) => {
+        const [cx, cy] = P(c);
+        const t = ((cx - ax) * dx + (cy - ay) * dy) / len2;
+        const off = Math.hypot(ax + t * dx - cx, ay + t * dy - cy);
+        return { c, t, off };
+      })
+      .filter(({ t, off }) => t > 0.12 && t < 0.88 && off < Math.min(150, Math.max(90, total * 0.15)))
+      .filter(({ c }) => !needsCrossing(a, c) || !needsCrossing(c, b))
+      .sort((x, y) => x.off - y.off)
+      .slice(0, 4)
+      .sort((x, y) => x.t - y.t)
+      .map(({ c }) => c);
+  }
+
+  function insertCity(city, index) {
+    if (!city || state.stops.some((s) => sameCity(s, city))) return;
+    snapshot();
+    const before = state.stops.slice();
+    state.stops.splice(index, 0, makeStop(city));
+    rebuildLegs(before);
+    persist();
+    render();
   }
 
   function suggestMode(from, to) {
@@ -621,6 +618,37 @@
     return `${hours}h ${mins}m`;
   }
 
+  const openTodos = new Set();
+
+  function todoHtml(stop) {
+    const list = activitiesFor(stop);
+    const q = encodeURIComponent(`${stop.name}, ${stop.country}`);
+    if (!list.length) {
+      return `<details class="todo" data-todo-for="${stop.id}" ${openTodos.has(stop.id) ? "open" : ""}>
+        <summary>Things to do</summary>
+        <p class="todo-links">No built-in list for this place yet —
+          <a href="https://en.wikivoyage.org/wiki/Special:Search?search=${encodeURIComponent(stop.name)}" target="_blank" rel="noopener">Wikivoyage ↗</a>
+          <a href="https://www.google.com/search?q=${encodeURIComponent(`top things to do in ${stop.name}, ${stop.country}`)}" target="_blank" rel="noopener">Top things to do ↗</a>
+        </p>
+      </details>`;
+    }
+    const picks = stop.picks || [];
+    return `<details class="todo" data-todo-for="${stop.id}" ${openTodos.has(stop.id) ? "open" : ""}>
+      <summary>Top 10 things to do${picks.length ? ` <span class="picked">· ${picks.length} picked</span>` : ""}</summary>
+      <ol>
+        ${list
+          .map(
+            (a, i) => `<li>
+              <label><input type="checkbox" data-pick="${i}" ${picks.includes(i) ? "checked" : ""}> <span>${escapeHtml(a)}</span></label>
+              <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${a}, ${stop.name}`)}" target="_blank" rel="noopener" title="Open in Google Maps">↗</a>
+            </li>`
+          )
+          .join("")}
+      </ol>
+      <p class="todo-links"><a href="https://en.wikivoyage.org/wiki/Special:Search?search=${q}" target="_blank" rel="noopener">More on Wikivoyage ↗</a></p>
+    </details>`;
+  }
+
   function render() {
     const focused = document.activeElement;
     let keepFocus = null;
@@ -712,6 +740,7 @@
                 <label class="notes">Notes
                   <textarea rows="2" data-field="notes" placeholder="Hostel booked? Must-see? Friend to meet?">${escapeHtml(stop.notes)}</textarea>
                 </label>
+                ${todoHtml(stop)}
                 ${stop.thin ? `<p class="pace">One night is a blur — two or three lets a city land.</p>` : ""}
               </article>
               ${
@@ -741,6 +770,14 @@
                           state.travelers > 1 ? ` pp · ${money(leg.cost * state.travelers)} total` : ""
                         }</span>
                       </div>
+                      ${(() => {
+                        const way = stopsOnTheWay(leg.fromStop, leg.toStop);
+                        return way.length
+                          ? `<div class="on-the-way"><span>Stop on the way:</span>${way
+                              .map((c) => `<button type="button" data-insert="${escapeHtml(c.name)}|${escapeHtml(c.country)}" title="Add ${escapeHtml(c.name)} between these stops">+ ${escapeHtml(c.name)}</button>`)
+                              .join("")}</div>`
+                          : "";
+                      })()}
                       <div class="leg-links">
                         ${bookingLinks(leg)
                           .map(([label, url]) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${label} ↗</a>`)
@@ -772,6 +809,25 @@
           setTimeout(render, 0);
         });
       });
+      const todo = card.querySelector(".todo");
+      todo?.addEventListener("toggle", () => {
+        if (todo.open) openTodos.add(id);
+        else openTodos.delete(id);
+      });
+      card.querySelectorAll("[data-pick]").forEach((box) => {
+        box.addEventListener("change", () => {
+          const stop = state.stops.find((s) => s.id === id);
+          if (!stop) return;
+          snapshot();
+          const i = Number(box.dataset.pick);
+          const picks = new Set(stop.picks || []);
+          if (box.checked) picks.add(i);
+          else picks.delete(i);
+          stop.picks = [...picks].sort((a, b) => a - b);
+          persist();
+          render();
+        });
+      });
       card.querySelectorAll("textarea").forEach((area) => {
         area.addEventListener("focus", snapshot);
         area.addEventListener("input", () => {
@@ -801,6 +857,12 @@
         state.legs[index].depart = value;
         persist();
         setTimeout(render, 0);
+      });
+      legEl.querySelectorAll("[data-insert]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const [name, country] = btn.dataset.insert.split("|");
+          insertCity(CITIES.find((c) => c.name === name && c.country === country), index + 1);
+        });
       });
       legEl.querySelectorAll("[data-mode]").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -841,7 +903,10 @@
       L.marker([stop.lat, stop.lng], { icon, zIndexOffset: 400 })
         .bindPopup(
           `<strong>${escapeHtml(stop.name)}</strong> <small>${escapeHtml(stop.country)}</small><br>${formatDate(stop.arrive)} → ${formatDate(stop.leave)}<br>${stop.nights} nights · ${money(stop.cost)}${
-            stop.notes ? `<br><em>${escapeHtml(stop.notes)}</em>` : ""
+            (stop.notes ? `<br><em>${escapeHtml(stop.notes)}</em>` : "") +
+            ((stop.picks || []).length
+              ? `<br>To do: ${stop.picks.map((i) => escapeHtml(activitiesFor(stop)[i] || "")).filter(Boolean).join(", ")}`
+              : "")
           }`
         )
         .addTo(tripLayer);
@@ -1081,7 +1146,12 @@
         `DTEND;VALUE=DATE:${day(s.nights ? s.leave : addDays(iso(s.arrive), 1))}`,
         `SUMMARY:${text(`${s.name} · ${s.nights} night${s.nights === 1 ? "" : "s"}`)}`,
         `LOCATION:${text(`${s.name}, ${s.country}`)}`,
-        ...(s.notes ? [`DESCRIPTION:${text(s.notes)}`] : []),
+        ...((() => {
+          const acts = activitiesFor(s);
+          const picked = (s.picks || []).map((i) => acts[i]).filter(Boolean);
+          const desc = [s.notes, picked.length ? `To do: ${picked.join(", ")}` : ""].filter(Boolean).join("\n");
+          return desc ? [`DESCRIPTION:${text(desc)}`] : [];
+        })()),
       ]);
     });
     p.legs.forEach((l, i) => {
@@ -1223,7 +1293,7 @@
       d: state.startDate,
       s: state.stops.map((s) => [
         s.name, s.nights, s.stay, s.food, s.play, s.notes || "",
-        s.country, +s.lat.toFixed(4), +s.lng.toFixed(4),
+        s.country, +s.lat.toFixed(4), +s.lng.toFixed(4), s.picks || [],
       ]),
       m: state.legs.map((l) => l.mode),
       t: state.legs.map((l) => l.depart || DEFAULT_DEPART),
@@ -1262,7 +1332,7 @@
     try {
       const data = JSON.parse(fromBase64Url(match[1]));
       const stops = (Array.isArray(data.s) ? data.s : [])
-        .map(([name, nights, stay, food, play, notes, country, lat, lng]) => {
+        .map(([name, nights, stay, food, play, notes, country, lat, lng, picks]) => {
           const known = CITIES.find((c) => c.name === name && (!country || c.country === country));
           const valid =
             typeof name === "string" && name && typeof country === "string" &&
@@ -1281,6 +1351,7 @@
             food: num(food, city.food),
             play: num(play, city.play),
             notes: String(notes || "").slice(0, 2000),
+            picks: Array.isArray(picks) ? picks.filter((i) => Number.isInteger(i) && i >= 0 && i < 10) : [],
           };
         })
         .filter(Boolean)
@@ -1660,7 +1731,9 @@
               <tbody>
                 ${p.stops
                   .map(
-                    (s) => `<tr><td>${escapeHtml(s.name)}<br><small>${weatherText(s)}</small></td><td class="n">${s.nights}</td><td class="n">${money(s.daily)}</td><td class="n">${money(s.cost)}</td></tr>`
+                    (s) => `<tr><td>${escapeHtml(s.name)}<br><small>${weatherText(s)}${
+                      (s.picks || []).length ? ` · ${s.picks.length} activit${s.picks.length === 1 ? "y" : "ies"} picked` : ""
+                    }</small></td><td class="n">${s.nights}</td><td class="n">${money(s.daily)}</td><td class="n">${money(s.cost)}</td></tr>`
                   )
                   .join("")}
               </tbody>

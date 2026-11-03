@@ -4,11 +4,11 @@ Plan a multi-week route across Europe: nights per city, daily spend, and how you
 
 Live at https://christianfox22.github.io/Christian-Fox/
 
-Files: `index.html`, `planner.css`, `planner.js`.
+Files: `index.html`, `planner.css`, `planner.js`, and `cities.js` (built-in cities, costs and top-10 activities — edit freely).
 
 ## Features
 
-- Search any city, town or village in Europe (via the free [Photon](https://photon.komoot.io) OpenStreetMap search), or click one of the 45 built-in cities on the map.
+- Search any city, town or village in Europe (via the free [Photon](https://photon.komoot.io) OpenStreetMap search), or click one of the 98 built-in cities on the map.
 - Set nights, stay/food/play budget per city, and notes.
 - Pick train, plane, bus, car, or ferry for each leg and set a departure time; travel time, arrival, and fare are estimated from distance.
 - Each leg links out to real schedules and prices: Google Flights, Google train/bus/ferry results, Google Maps driving, and Rome2Rio.
@@ -18,6 +18,8 @@ Files: `index.html`, `planner.css`, `planner.js`.
 - **Shortest route** reorders stops to cut travel distance (your first stop stays put).
 - **Add to calendar** downloads an `.ics` file with every stay and journey.
 - **Undo** (button or ⌘Z / Ctrl+Z) and one-click sample trips.
+- Every built-in city has a **top 10 things to do** checklist; ticked activities show on the map, in the calendar export and on the dashboard.
+- Each journey suggests **stops on the way** (e.g. Paris → Amsterdam offers Brussels, Ghent, Antwerp, Rotterdam) that you can add in one click.
 - **Misc costs** box for one-off extras (insurance, eSIM, rail pass…) that count toward the total and budget.
 - **Dashboard** tab with KPIs (total vs budget, per person, per day, trip length, cities, distance, time in transit, CO₂ estimate) and charts: where the money goes, distance by transport, running spend vs budget, a trip timeline, spend by city, and a city-by-city table.
 - Trips save in the browser automatically. **Share link** copies a URL containing the whole trip; **Print** gives a clean itinerary.
