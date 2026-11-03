@@ -25,6 +25,10 @@
           <p class="eyebrow">Multi-city · multi-week</p>
           <h1>Europe trip planner</h1>
         </div>
+        <nav class="tabs" role="tablist" aria-label="View">
+          <button type="button" role="tab" data-tab="plan" aria-selected="true">Planner</button>
+          <button type="button" role="tab" data-tab="dash" aria-selected="false">Dashboard</button>
+        </nav>
         <div class="actions">
           <button type="button" class="ghost" id="undo" title="Undo (⌘Z)" disabled>↶ Undo</button>
           <button type="button" class="ghost" id="optimize" title="Reorder stops for the least travel (first stop stays put)">Shortest route</button>
@@ -102,7 +106,10 @@
           </div>
         </div>
       </div>
+
+      <section class="dashboard" id="dashboard" role="tabpanel" aria-label="Trip dashboard"></section>
     </div>
+    <div class="tip" id="tip" hidden></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="planner.js"></script>

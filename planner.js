@@ -49,11 +49,11 @@
 
   const MODES = ["train", "plane", "bus", "car", "ferry"];
   const MODE_COLOR = {
-    train: "#2d6a4f",
-    plane: "#e85d04",
-    bus: "#9c6644",
-    car: "#1a1a16",
-    ferry: "#1d4e89",
+    train: "#2a78d6",
+    plane: "#eb6834",
+    bus: "#1baf7a",
+    car: "#eda100",
+    ferry: "#e87ba4",
   };
   const LAND_MODES = ["train", "bus", "car"];
   // Places you can't reach overland from the mainland (UK counts as mainland via the tunnel).
@@ -824,6 +824,7 @@
 
     drawTrip(p);
     loadWeather(p.stops);
+    if (activeTab === "dash") renderDashboard(p);
   }
 
   let lastFitKey = "";
@@ -1151,6 +1152,7 @@
           els.itinerary.querySelectorAll(".weather").forEach((el) => {
             if (el.dataset.weather === key) el.innerHTML = weatherText(stop);
           });
+          if (activeTab === "dash" && !weatherPending.size) renderDashboard(plan());
         });
     });
   }
@@ -1303,6 +1305,392 @@
     }
   }
 
+  // ---------- Tabs ----------
+  const TAB_KEY = "europe-trip-tab";
+  let activeTab = "plan";
+  try {
+    if (localStorage.getItem(TAB_KEY) === "dash") activeTab = "dash";
+  } catch {
+    /* ignore */
+  }
+  const appEl = document.querySelector(".app");
+  const dashEl = document.getElementById("dashboard");
+  const tipEl = document.getElementById("tip");
+
+  function setTab(tab) {
+    activeTab = tab;
+    appEl.classList.toggle("dash-mode", tab === "dash");
+    document.querySelectorAll("[data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
+    try {
+      localStorage.setItem(TAB_KEY, tab);
+    } catch {
+      /* ignore */
+    }
+    if (tab === "dash") renderDashboard(plan());
+    else setTimeout(() => map.invalidateSize(), 0);
+  }
+  document.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab)));
+
+  // ---------- Dashboard ----------
+  // kg CO2e per passenger-km (rough, typical European averages); car is per vehicle-km.
+  const CO2 = { plane: 0.2, train: 0.035, bus: 0.03, ferry: 0.12, car: 0.17 };
+
+  function tripCo2(p) {
+    const people = state.travelers;
+    return p.legs.reduce((t, l) => {
+      if (l.mode === "car") return t + (l.km * CO2.car * Math.ceil(people / 5)) / people;
+      return t + l.km * CO2[l.mode];
+    }, 0);
+  }
+
+  function dayIndex(date) {
+    return Math.round((date - parseDate(state.startDate)) / 86400000);
+  }
+
+  function nf(n) {
+    return Math.round(n).toLocaleString("en-GB");
+  }
+
+  function barsHtml(rows, { color } = {}) {
+    const max = Math.max(...rows.map((r) => r.value), 1);
+    return `<div class="bars">${rows
+      .map(
+        (r) => `<div class="bar-row" data-tip="${escapeHtml(r.tip || "")}">
+          <span class="label">${escapeHtml(r.label)}</span>
+          <span class="track"><span class="fill" style="width:${(r.value / max) * 100}%;${
+            r.color || color ? `--bar:${r.color || color}` : ""
+          }"></span></span>
+          <span class="num">${r.text}</span>
+        </div>`
+      )
+      .join("")}</div>`;
+  }
+
+  function spendSeries(p) {
+    const n = Math.max(1, dayIndex(p.end));
+    const daily = new Array(n + 1).fill(0);
+    daily[0] += p.miscCost;
+    p.stops.forEach((s) => {
+      const start = dayIndex(s.arrive);
+      const perDay = s.daily;
+      for (let d = 0; d < s.nights; d += 1) {
+        const i = Math.min(n, start + d);
+        daily[i] += perDay;
+      }
+    });
+    p.legs.forEach((l) => {
+      daily[Math.min(n, dayIndex(parseDate(l.date)))] += l.cost * state.travelers;
+    });
+    let run = 0;
+    return daily.map((v, i) => {
+      run += v;
+      return { day: i, date: addDays(state.startDate, i), spent: run, today: v };
+    });
+  }
+
+  // Round axis ticks to 1 / 2 / 2.5 / 5 × 10^n in the display currency.
+  function niceMax(maxEur) {
+    const raw = (maxEur * rate()) / 4 || 1;
+    const mag = 10 ** Math.floor(Math.log10(raw));
+    const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((v) => v >= raw);
+    return (step * 4) / rate();
+  }
+
+  function chartGeom(series) {
+    const W = Math.max(320, Math.min(1200, dashEl.clientWidth - 40) - 40);
+    return { W, H: 240, L: 64, R: 12, T: 18, B: 28, maxY: niceMax(Math.max(series.at(-1).spent, state.budget || 0) * 1.04) };
+  }
+
+  function lineChartHtml(series, budget) {
+    const { W, H, L, R, T, B, maxY } = chartGeom(series);
+    const x = (i) => L + (i / Math.max(1, series.length - 1)) * (W - L - R);
+    const y = (v) => T + (1 - v / maxY) * (H - T - B);
+    const ticks = 4;
+    const grid = Array.from({ length: ticks + 1 }, (_, k) => (maxY / ticks) * k);
+    const path = series.map((pt, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(pt.spent).toFixed(1)}`).join("");
+    const step = Math.max(1, Math.ceil(series.length / Math.max(3, Math.floor(W / 90))));
+    const last = series.length - 1;
+    const xLabels = series.filter((pt, i) => (i % step === 0 && last - i >= step / 2) || i === last);
+    return `<div class="line-chart" id="spend-chart">
+      <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Cumulative spend by day">
+        <g class="grid">${grid.map((v) => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"></line>`).join("")}</g>
+        <g class="axis">
+          ${grid.map((v) => `<text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${money(v)}</text>`).join("")}
+          ${xLabels
+            .map(
+              (pt) =>
+                `<text x="${x(pt.day)}" y="${H - 8}" text-anchor="${pt.day === series.length - 1 && series.length > 1 ? "end" : pt.day === 0 ? "start" : "middle"}">${pt.date.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</text>`
+            )
+            .join("")}
+        </g>
+        ${
+          budget
+            ? `<line x1="${L}" x2="${W - R}" y1="${y(budget)}" y2="${y(budget)}" stroke="#52514e" stroke-width="1.5" stroke-dasharray="5 4"></line>
+               <text x="${W - R}" y="${y(budget) - 6}" text-anchor="end" font-size="11" fill="#52514e">Budget ${money(budget)}</text>`
+            : ""
+        }
+        <path d="${path}" fill="none" stroke="#2d6a4f" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>
+        <line class="cross" x1="0" x2="0" y1="${T}" y2="${H - B}" stroke="#52514e" stroke-width="1" visibility="hidden"></line>
+        <circle class="dot" r="4.5" fill="#2d6a4f" stroke="#fffefb" stroke-width="2" visibility="hidden"></circle>
+        <rect class="hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"></rect>
+      </svg>
+    </div>`;
+  }
+
+  function wireLineChart(series) {
+    const wrap = dashEl.querySelector("#spend-chart");
+    if (!wrap) return;
+    const svg = wrap.querySelector("svg");
+    const cross = svg.querySelector(".cross");
+    const dot = svg.querySelector(".dot");
+    const { W, H, L, R, T, B, maxY } = chartGeom(series);
+    const hide = () => {
+      cross.setAttribute("visibility", "hidden");
+      dot.setAttribute("visibility", "hidden");
+      tipEl.hidden = true;
+    };
+    svg.querySelector(".hit").addEventListener("mousemove", (e) => {
+      const box = svg.getBoundingClientRect();
+      const vx = ((e.clientX - box.left) / box.width) * W;
+      const i = Math.max(0, Math.min(series.length - 1, Math.round(((vx - L) / (W - L - R)) * (series.length - 1))));
+      const pt = series[i];
+      const px = L + (i / Math.max(1, series.length - 1)) * (W - L - R);
+      const py = T + (1 - pt.spent / maxY) * (H - T - B);
+      cross.setAttribute("x1", px);
+      cross.setAttribute("x2", px);
+      cross.setAttribute("visibility", "visible");
+      dot.setAttribute("cx", px);
+      dot.setAttribute("cy", py);
+      dot.setAttribute("visibility", "visible");
+      const where = cityOnDay(i);
+      showTip(
+        e,
+        `<b>Day ${i + 1} · ${formatDate(pt.date)}</b>${where ? `${escapeHtml(where)}<br>` : ""}${money(pt.today)} that day<br>${money(pt.spent)} spent so far${
+          state.budget ? `<br>${money(Math.abs(state.budget - pt.spent))} ${pt.spent > state.budget ? "over" : "left"}` : ""
+        }`
+      );
+    });
+    svg.querySelector(".hit").addEventListener("mouseleave", hide);
+  }
+
+  function cityOnDay(i) {
+    const p = plan();
+    const stop = p.stops.find((s) => dayIndex(s.arrive) <= i && i < dayIndex(s.leave));
+    if (stop) return stop.name;
+    const leg = p.legs.find((l) => dayIndex(parseDate(l.date)) === i);
+    return leg ? `${leg.from} → ${leg.to}` : "";
+  }
+
+  function showTip(e, html) {
+    tipEl.innerHTML = html;
+    tipEl.hidden = false;
+    const pad = 14;
+    const w = tipEl.offsetWidth;
+    const h = tipEl.offsetHeight;
+    let left = e.clientX + pad;
+    let top = e.clientY + pad;
+    if (left + w > window.innerWidth - 8) left = e.clientX - w - pad;
+    if (top + h > window.innerHeight - 8) top = e.clientY - h - pad;
+    tipEl.style.left = `${Math.max(8, left)}px`;
+    tipEl.style.top = `${Math.max(8, top)}px`;
+  }
+
+  function renderDashboard(p) {
+    if (!p.stops.length) {
+      dashEl.innerHTML = `<div class="dash-inner"><div class="dash-empty">
+        <h2>No trip yet</h2>
+        <p>Add a few cities in the Planner tab and your numbers show up here.</p>
+        <button type="button" data-goto="plan">Go to planner</button>
+      </div></div>`;
+      dashEl.querySelector("[data-goto]").addEventListener("click", () => setTab("plan"));
+      return;
+    }
+    const people = state.travelers;
+    const rooms = Math.ceil(people / 2);
+    const km = p.legs.reduce((t, l) => t + l.km, 0);
+    const countries = new Set(p.stops.map((s) => s.country)).size;
+    const co2 = tripCo2(p);
+    const roomCost = p.stops.reduce((t, s) => t + s.stay * rooms * s.nights, 0);
+    const foodCost = p.stops.reduce((t, s) => t + s.food * people * s.nights, 0);
+    const playCost = p.stops.reduce((t, s) => t + s.play * people * s.nights, 0);
+    const budgetPct = state.budget ? (p.totalCost / state.budget) * 100 : 0;
+    const over = state.budget && p.totalCost > state.budget;
+    const longest = p.stops.reduce((a, s) => (s.nights > a.nights ? s : a), p.stops[0]);
+    const priciest = p.stops.reduce((a, s) => (s.daily > a.daily ? s : a), p.stops[0]);
+
+    const kpis = [
+      {
+        h: "Trip total",
+        v: money(p.totalCost),
+        sub: state.budget
+          ? `<span class="status ${over ? "critical" : "good"}">${over ? "Over budget" : "On budget"}</span> · ${Math.round(budgetPct)}% of ${money(state.budget)}
+             <div class="meter ${over ? "over" : ""}"><span style="width:${Math.min(100, budgetPct)}%"></span></div>`
+          : "Set a budget in Trip settings to track it",
+      },
+      { h: "Per person", v: money(p.totalCost / people), sub: `${people} traveler${people > 1 ? "s" : ""}` },
+      { h: "Per day", v: money(p.totalDays ? p.totalCost / p.totalDays : 0), sub: `Priciest: ${escapeHtml(priciest.name)} ${money(priciest.daily)}/day` },
+      {
+        h: "Trip length",
+        v: `${p.totalDays} days`,
+        sub: `${formatDate(parseDate(state.startDate))} → ${formatDate(p.end)}`,
+      },
+      {
+        h: "Cities",
+        v: `${p.stops.length}`,
+        sub: `${countries} countr${countries === 1 ? "y" : "ies"} · avg ${(p.stayDays / p.stops.length).toFixed(1)} nights · longest ${escapeHtml(longest.name)}`,
+      },
+      { h: "Distance", v: `${nf(km)} km`, sub: `${p.legs.length} journey${p.legs.length === 1 ? "" : "s"}` },
+      {
+        h: "Time in transit",
+        v: hoursLabel(p.transitHours),
+        sub: `${p.totalDays ? Math.round((p.transitHours / (p.totalDays * 24)) * 100) : 0}% of the trip · ${money(p.transitCost)} fares`,
+      },
+      {
+        h: "Travel CO₂ (est.)",
+        v: `${nf(co2)} kg`,
+        sub: `per person · ${km ? Math.round((co2 / km) * 1000) : 0} g/km`,
+      },
+    ];
+
+    const breakdown = [
+      ["Rooms", roomCost],
+      ["Food", foodCost],
+      ["Activities", playCost],
+      ["Transport", p.transitCost],
+      ["Misc", p.miscCost],
+    ]
+      .filter(([, v]) => v > 0)
+      .map(([label, value]) => ({
+        label,
+        value,
+        text: `${money(value)} · ${Math.round((value / p.totalCost) * 100)}%`,
+        tip: `<b>${label}</b>${money(value)} · ${Math.round((value / p.totalCost) * 100)}% of the trip<br>${money(value / people)} per person`,
+      }));
+
+    const cityRows = p.stops.map((s) => ({
+      label: s.name,
+      value: s.cost,
+      text: money(s.cost),
+      tip: `<b>${escapeHtml(s.name)}, ${escapeHtml(s.country)}</b>${s.nights} night${s.nights === 1 ? "" : "s"} · ${formatDate(s.arrive)} → ${formatDate(s.leave)}<br>${money(s.daily)} per day for the group`,
+    }));
+
+    const byMode = MODES.map((m) => {
+      const legs = p.legs.filter((l) => l.mode === m);
+      return {
+        mode: m,
+        legs: legs.length,
+        km: legs.reduce((t, l) => t + l.km, 0),
+        hours: legs.reduce((t, l) => t + l.hours, 0),
+        cost: legs.reduce((t, l) => t + l.cost * people, 0),
+      };
+    }).filter((r) => r.legs);
+    const modeRows = byMode.map((r) => ({
+      label: r.mode[0].toUpperCase() + r.mode.slice(1),
+      value: r.km,
+      color: MODE_COLOR[r.mode],
+      text: `${nf(r.km)} km`,
+      tip: `<b>${r.mode[0].toUpperCase() + r.mode.slice(1)}</b>${r.legs} journey${r.legs === 1 ? "" : "s"} · ${nf(r.km)} km<br>${hoursLabel(r.hours)} · ${money(r.cost)} fares`,
+    }));
+
+    const totalSpan = Math.max(1, dayIndex(p.end));
+    const segs = [];
+    p.stops.forEach((s, i) => {
+      segs.push({
+        cls: i % 2 ? "alt" : "",
+        days: s.nights,
+        text: `${s.name} · ${s.nights}n`,
+        tip: `<b>${escapeHtml(s.name)}</b>${formatDate(s.arrive)} → ${formatDate(s.leave)} · ${s.nights} night${s.nights === 1 ? "" : "s"}`,
+      });
+      const l = p.legs[i];
+      if (l && l.days) {
+        segs.push({
+          cls: "travel",
+          days: l.days,
+          text: "travel",
+          tip: `<b>${escapeHtml(l.from)} → ${escapeHtml(l.to)}</b>${l.mode} · ${hoursLabel(l.hours)} · arrive ${l.arriveTime} +${l.days}d`,
+        });
+      }
+    });
+
+    const series = spendSeries(p);
+
+    dashEl.innerHTML = `<div class="dash-inner">
+      <div class="kpis">
+        ${kpis.map((k) => `<div class="kpi"><h3>${k.h}</h3><span class="value">${k.v}</span><span class="sub">${k.sub}</span></div>`).join("")}
+      </div>
+      <div class="charts">
+        <div class="card">
+          <h3>Where the money goes</h3>
+          <p class="note">Share of the ${money(p.totalCost)} total</p>
+          ${barsHtml(breakdown)}
+        </div>
+        <div class="card">
+          <h3>Distance by transport</h3>
+          <p class="note">Same colors as the map · hover for time and fares</p>
+          ${modeRows.length ? barsHtml(modeRows) : `<p class="note">Add a second city to see journeys.</p>`}
+        </div>
+        <div class="card wide">
+          <h3>Spending over the trip</h3>
+          <p class="note">Running total by day${p.miscCost ? " · misc costs counted up front" : ""}${state.budget ? " · dashed line is your budget" : ""}</p>
+          ${lineChartHtml(series, state.budget)}
+        </div>
+        <div class="card wide">
+          <h3>Timeline</h3>
+          <p class="note">One block per city, sized by nights${segs.some((s) => s.cls === "travel") ? " · striped blocks are overnight travel" : ""}</p>
+          <div class="timeline">
+            ${segs
+              .map(
+                (s) => `<div class="seg ${s.cls}" style="flex:${s.days}" data-tip="${escapeHtml(s.tip)}">${escapeHtml(s.text)}</div>`
+              )
+              .join("")}
+          </div>
+          <div class="timeline-scale"><span>${formatDate(parseDate(state.startDate))}</span><span>${totalSpan} days</span><span>${formatDate(p.end)}</span></div>
+        </div>
+        <div class="card">
+          <h3>Spend by city</h3>
+          <p class="note">Rooms, food and activities for the whole stay</p>
+          ${barsHtml(cityRows)}
+        </div>
+        <div class="card">
+          <h3>City by city</h3>
+          <p class="note">The numbers behind the charts</p>
+          <div class="table-wrap">
+            <table class="dash-table">
+              <thead><tr><th>City</th><th class="n">Nights</th><th class="n">Per day</th><th class="n">Total</th></tr></thead>
+              <tbody>
+                ${p.stops
+                  .map(
+                    (s) => `<tr><td>${escapeHtml(s.name)}<br><small>${weatherText(s)}</small></td><td class="n">${s.nights}</td><td class="n">${money(s.daily)}</td><td class="n">${money(s.cost)}</td></tr>`
+                  )
+                  .join("")}
+              </tbody>
+              <tfoot>
+                <tr><td>Stays</td><td class="n">${p.stayDays}</td><td></td><td class="n">${money(p.stayCost)}</td></tr>
+                <tr><td>Transport</td><td></td><td></td><td class="n">${money(p.transitCost)}</td></tr>
+                ${p.miscCost ? `<tr><td>Misc</td><td></td><td></td><td class="n">${money(p.miscCost)}</td></tr>` : ""}
+                <tr><td>Total</td><td></td><td></td><td class="n">${money(p.totalCost)}</td></tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+    dashEl.querySelectorAll("[data-tip]").forEach((el) => {
+      if (!el.dataset.tip) return;
+      el.addEventListener("mousemove", (e) => showTip(e, el.dataset.tip));
+      el.addEventListener("mouseleave", () => (tipEl.hidden = true));
+    });
+    wireLineChart(series);
+  }
+
+  let resizeTimer = 0;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => activeTab === "dash" && renderDashboard(plan()), 150);
+  });
+
+  setTab(activeTab);
   render();
   loadRates();
   setTimeout(() => map.invalidateSize(), 200);

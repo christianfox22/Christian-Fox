@@ -18,6 +18,8 @@ Files: `index.html`, `planner.css`, `planner.js`.
 - **Shortest route** reorders stops to cut travel distance (your first stop stays put).
 - **Add to calendar** downloads an `.ics` file with every stay and journey.
 - **Undo** (button or ⌘Z / Ctrl+Z) and one-click sample trips.
+- **Misc costs** box for one-off extras (insurance, eSIM, rail pass…) that count toward the total and budget.
+- **Dashboard** tab with KPIs (total vs budget, per person, per day, trip length, cities, distance, time in transit, CO₂ estimate) and charts: where the money goes, distance by transport, running spend vs budget, a trip timeline, spend by city, and a city-by-city table.
 - Trips save in the browser automatically. **Share link** copies a URL containing the whole trip; **Print** gives a clean itinerary.
 
 Costs are rough estimates, not live prices: per-city nightly stay/food/activity numbers are hand-set guesses (other cities use their country's average or a regional guess), and fares are a base price plus a per-km rate for each mode. Every number can be edited.
