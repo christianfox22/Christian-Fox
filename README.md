@@ -1,13 +1,12 @@
-# Christian Fox
+# Europe Trip Planner
 
-Personal site for Christian Fox — LinkedIn Larper — plus a Europe trip planner.
+Plan a multi-week route across Europe: nights per city, daily spend, and how you travel between stops.
 
-## Pages
+Live at https://christianfox22.github.io/Christian-Fox/
 
-- `index.html` / `style.css` — the homepage: about, projects, contact.
-- `planner.html` / `planner.css` / `planner.js` — Europe trip planner.
+Files: `index.html`, `planner.css`, `planner.js`.
 
-## Trip planner
+## Features
 
 - Search any city, town or village in Europe (via the free [Photon](https://photon.komoot.io) OpenStreetMap search), or click one of the 45 built-in cities on the map.
 - Set nights, stay/food/play budget per city, and notes.
