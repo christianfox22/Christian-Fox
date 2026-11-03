@@ -70,14 +70,27 @@
     "San Marino": [110, 45, 25], Andorra: [110, 45, 30], Kosovo: [45, 20, 15],
   };
   const FALLBACK_COST = [100, 40, 25];
+
+  // Symbol and fallback rate per EUR; live rates replace these when they load.
+  const CURRENCIES = {
+    EUR: ["€", 1], USD: ["$", 1.12], GBP: ["£", 0.84], CAD: ["C$", 1.55], AUD: ["A$", 1.7],
+    CHF: ["CHF ", 0.94], SEK: ["kr ", 11.2], NOK: ["kr ", 11.7], DKK: ["kr ", 7.46],
+    PLN: ["zł ", 4.3], CZK: ["Kč ", 25], HUF: ["Ft ", 395],
+  };
+  const rates = Object.fromEntries(Object.entries(CURRENCIES).map(([k, [, r]]) => [k, r]));
+  let ratesNote = "approximate rates";
+
+  const SAMPLE_TRIPS = [
+    { label: "First time in Europe", cities: ["London", "Paris", "Amsterdam", "Berlin", "Prague", "Vienna", "Venice", "Florence", "Rome"] },
+    { label: "Italy loop", cities: ["Milan", "Venice", "Florence", "Rome", "Naples"] },
+    { label: "Iberia", cities: ["Porto", "Lisbon", "Seville", "Madrid", "Barcelona"] },
+    { label: "Central Europe on a budget", cities: ["Berlin", "Prague", "Vienna", "Budapest", "Kraków"] },
+    { label: "Nordic capitals", cities: ["Oslo", "Copenhagen", "Stockholm", "Helsinki", "Tallinn"] },
+  ];
   const DEFAULT_DEPART = "09:00";
   const STORAGE = "europe-trip-v1";
 
-  const state = loadShared() || load() || {
-    startDate: defaultStart(),
-    stops: [],
-    legs: [],
-  };
+  const state = withDefaults(loadShared() || load() || { stops: [], legs: [] });
   persist();
 
   const map = L.map("map", {
@@ -114,13 +127,54 @@
     reset: document.getElementById("reset-trip"),
     share: document.getElementById("share-trip"),
     print: document.getElementById("print-trip"),
+    undo: document.getElementById("undo"),
+    optimize: document.getElementById("optimize"),
+    calendar: document.getElementById("calendar"),
+    travelers: document.getElementById("travelers"),
+    budget: document.getElementById("budget"),
+    currency: document.getElementById("currency"),
+    rateNote: document.getElementById("rate-note"),
   };
+
+  els.currency.innerHTML = Object.keys(CURRENCIES)
+    .map((c) => `<option value="${c}">${c}</option>`)
+    .join("");
+  els.undo.addEventListener("click", undo);
+  els.optimize.addEventListener("click", optimizeRoute);
+  els.calendar.addEventListener("click", exportCalendar);
+  els.travelers.addEventListener("change", () => {
+    snapshot();
+    state.travelers = Math.min(20, Math.max(1, Math.round(Number(els.travelers.value)) || 1));
+    persist();
+    render();
+  });
+  els.budget.addEventListener("change", () => {
+    snapshot();
+    const value = Number(els.budget.value);
+    state.budget = Number.isFinite(value) && value > 0 ? value / rate() : 0;
+    persist();
+    render();
+  });
+  els.currency.addEventListener("change", () => {
+    snapshot();
+    state.currency = CURRENCIES[els.currency.value] ? els.currency.value : "EUR";
+    persist();
+    render();
+  });
+  document.addEventListener("keydown", (event) => {
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "");
+    if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === "z" && !typing) {
+      event.preventDefault();
+      undo();
+    }
+  });
 
   els.share.addEventListener("click", shareTrip);
   els.print.addEventListener("click", () => window.print());
 
   els.start.value = state.startDate;
   els.start.addEventListener("change", () => {
+    snapshot();
     state.startDate = els.start.value || defaultStart();
     els.start.value = state.startDate;
     persist();
@@ -128,7 +182,8 @@
   });
   els.reset.addEventListener("click", () => {
     if (!state.stops.length) return;
-    if (!window.confirm("Clear every stop from this trip?")) return;
+    // No confirm needed now that Undo exists.
+    snapshot();
     state.stops = [];
     state.legs = [];
     persist();
@@ -259,10 +314,9 @@
     return [primary, ["All options", `https://www.rome2rio.com/map/${slug(from)}/${slug(to)}`]];
   }
 
-  function addCity(city) {
-    if (!city || state.stops.some((s) => sameCity(s, city))) return;
+  function makeStop(city) {
     const cost = city.stay != null ? city : costFor(city.country);
-    state.stops.push({
+    return {
       id: uid(),
       name: city.name,
       country: city.country,
@@ -273,7 +327,13 @@
       food: cost.food,
       play: cost.play,
       notes: "",
-    });
+    };
+  }
+
+  function addCity(city) {
+    if (!city || state.stops.some((s) => sameCity(s, city))) return;
+    snapshot();
+    state.stops.push(makeStop(city));
     if (state.stops.length > 1) {
       state.legs.push({ mode: suggestMode(state.stops.at(-2), city), depart: DEFAULT_DEPART });
     }
@@ -319,6 +379,7 @@
   function removeStop(id) {
     const index = state.stops.findIndex((s) => s.id === id);
     if (index < 0) return;
+    snapshot();
     const before = state.stops.slice();
     state.stops.splice(index, 1);
     rebuildLegs(before);
@@ -330,6 +391,7 @@
     const index = state.stops.findIndex((s) => s.id === id);
     const next = index + dir;
     if (next < 0 || next >= state.stops.length) return;
+    snapshot();
     const before = state.stops.slice();
     const [stop] = state.stops.splice(index, 1);
     state.stops.splice(next, 0, stop);
@@ -450,10 +512,12 @@
     let transitHours = 0;
     let rushed = 0;
 
+    const people = state.travelers;
+    const rooms = Math.ceil(people / 2);
     state.stops.forEach((stop, i) => {
       const arrive = parseDate(cursor);
       const nights = Number(stop.nights) || 0;
-      const daily = Number(stop.stay) + Number(stop.food) + Number(stop.play);
+      const daily = Number(stop.stay) * rooms + (Number(stop.food) + Number(stop.play)) * people;
       const cost = daily * nights;
       const leave = addDays(cursor, nights);
       stayDays += nights;
@@ -479,7 +543,7 @@
         const days = Math.floor(arriveMin / 1440);
         const arriveTime = clock(arriveMin % 1440);
         transitDays += days;
-        transitCost += est.cost;
+        transitCost += est.cost * people;
         transitHours += est.hours;
         const blocked = LAND_MODES.includes(mode) && needsCrossing(stop, next);
         legs.push({
@@ -507,8 +571,14 @@
     };
   }
 
-  function euro(n) {
-    return `€${Math.round(n).toLocaleString("en-GB")}`;
+  // All money is stored in EUR; this shows it in the chosen currency.
+  function money(eur) {
+    const [symbol] = CURRENCIES[state.currency] || CURRENCIES.EUR;
+    return `${symbol}${Math.round(eur * rate()).toLocaleString("en-GB")}`;
+  }
+
+  function rate() {
+    return rates[state.currency] || 1;
   }
 
   function hoursLabel(h) {
@@ -533,6 +603,22 @@
     const p = plan();
     const avg = p.totalDays ? p.totalCost / p.totalDays : 0;
     const paceWarn = p.rushed > 0 || (p.stops.length > 0 && p.stayDays / p.stops.length < 2.5);
+    const overBudget = state.budget > 0 && p.totalCost > state.budget;
+    const budgetLine = !state.budget
+      ? "trip total"
+      : overBudget
+        ? `${money(p.totalCost - state.budget)} over budget`
+        : `${money(state.budget - p.totalCost)} left of ${money(state.budget)}`;
+
+    els.start.value = state.startDate;
+    els.travelers.value = state.travelers;
+    els.currency.value = state.currency;
+    if (document.activeElement !== els.budget) {
+      els.budget.value = state.budget ? Math.round(state.budget * rate()) : "";
+    }
+    els.rateNote.textContent =
+      state.currency === "EUR" ? "" : `1 EUR = ${rate().toFixed(2)} ${state.currency} · ${ratesNote}`;
+    els.undo.disabled = !undoStack.length;
 
     els.stats.innerHTML = `
       <div class="stat"><b>${p.stops.length}</b><span>cities</span></div>
@@ -541,13 +627,25 @@
           ? `days · ${formatDate(parseDate(state.startDate))} → ${formatDate(p.end)}`
           : "days on the road"
       }</span></div>
-      <div class="stat"><b>${euro(p.totalCost)}</b><span>trip total</span></div>
-      <div class="stat"><b>${euro(avg)}</b><span>per day</span></div>
-      <div class="stat"><b>${hoursLabel(p.transitHours)}</b><span>in transit · ${euro(p.transitCost)}</span></div>
+      <div class="stat ${overBudget ? "warn" : ""}"><b>${money(p.totalCost)}</b><span>${budgetLine}</span></div>
+      <div class="stat"><b>${money(avg)}</b><span>per day${
+        state.travelers > 1 ? ` · ${money(p.totalCost / state.travelers)} per person` : ""
+      }</span></div>
+      <div class="stat"><b>${hoursLabel(p.transitHours)}</b><span>in transit · ${money(p.transitCost)}</span></div>
     `;
 
     if (!p.stops.length) {
-      els.itinerary.innerHTML = `<li class="empty">Start with a city — Lisbon to the Balkans, or a tight loop around Italy. Click the map or search above.</li>`;
+      els.itinerary.innerHTML = `<li class="empty">
+          <p>Start with a city — search above or click the map. Or load a starter route:</p>
+          <div class="samples">
+            ${SAMPLE_TRIPS.map(
+              (t, i) => `<button type="button" class="ghost" data-sample="${i}">${t.label} <small>${t.cities.length} cities</small></button>`
+            ).join("")}
+          </div>
+        </li>`;
+      els.itinerary.querySelectorAll("[data-sample]").forEach((btn) => {
+        btn.addEventListener("click", () => loadSample(SAMPLE_TRIPS[Number(btn.dataset.sample)]));
+      });
     } else {
       els.itinerary.innerHTML = p.stops
         .map((stop, i) => {
@@ -562,19 +660,20 @@
                   <button class="icon-btn" data-act="down" title="Move later">↓</button>
                   <button class="icon-btn" data-act="remove" title="Remove">✕</button>
                 </div>
-                <p class="dates">${formatDate(stop.arrive)} → ${formatDate(stop.leave)} · ${euro(stop.cost)} stay</p>
+                <p class="dates">${formatDate(stop.arrive)} → ${formatDate(stop.leave)} · ${money(stop.cost)} here</p>
+                <p class="weather" data-weather="${weatherKey(stop)}">${weatherText(stop)}</p>
                 <div class="row">
                   <label class="nights">Nights
                     <input type="number" min="1" max="30" data-field="nights" value="${stop.nights}">
                   </label>
-                  <label class="money">Stay / night
-                    <input type="number" min="0" step="5" data-field="stay" value="${stop.stay}">
+                  <label class="money">Room / night · ${state.currency}
+                    <input type="number" min="0" step="5" data-field="stay" value="${Math.round(stop.stay * rate())}">
                   </label>
-                  <label class="money">Food / day
-                    <input type="number" min="0" step="5" data-field="food" value="${stop.food}">
+                  <label class="money">Food / day pp · ${state.currency}
+                    <input type="number" min="0" step="5" data-field="food" value="${Math.round(stop.food * rate())}">
                   </label>
-                  <label class="money">Play / day
-                    <input type="number" min="0" step="5" data-field="play" value="${stop.play}">
+                  <label class="money">Play / day pp · ${state.currency}
+                    <input type="number" min="0" step="5" data-field="play" value="${Math.round(stop.play * rate())}">
                   </label>
                 </div>
                 <label class="notes">Notes
@@ -605,7 +704,9 @@
                       </div>
                       <div class="leg-meta">
                         <span>${hoursLabel(leg.hours)} door to door</span>
-                        <span>~${euro(leg.cost)} fare</span>
+                        <span>~${money(leg.cost)} fare${
+                          state.travelers > 1 ? ` pp · ${money(leg.cost * state.travelers)} total` : ""
+                        }</span>
                       </div>
                       <div class="leg-links">
                         ${bookingLinks(leg)
@@ -630,6 +731,8 @@
           let value = Number(input.value);
           if (!Number.isFinite(value) || value < 0) value = 0;
           if (field === "nights") value = Math.min(30, Math.max(1, Math.round(value) || 1));
+          else value = Math.round((value / rate()) * 100) / 100;
+          snapshot();
           stop[field] = value;
           persist();
           // Defer so focus has moved (e.g. on Tab) before we re-render and restore it.
@@ -637,6 +740,7 @@
         });
       });
       card.querySelectorAll("textarea").forEach((area) => {
+        area.addEventListener("focus", snapshot);
         area.addEventListener("input", () => {
           const stop = state.stops.find((s) => s.id === id);
           if (!stop) return;
@@ -660,12 +764,15 @@
       departInput.addEventListener("change", () => {
         const value = validTime(departInput.value);
         if (!value) return;
+        snapshot();
         state.legs[index].depart = value;
         persist();
         setTimeout(render, 0);
       });
       legEl.querySelectorAll("[data-mode]").forEach((btn) => {
         btn.addEventListener("click", () => {
+          if (state.legs[index].mode === btn.dataset.mode) return;
+          snapshot();
           state.legs[index].mode = btn.dataset.mode;
           persist();
           render();
@@ -683,6 +790,7 @@
     }
 
     drawTrip(p);
+    loadWeather(p.stops);
   }
 
   let lastFitKey = "";
@@ -698,7 +806,7 @@
       });
       L.marker([stop.lat, stop.lng], { icon, zIndexOffset: 400 })
         .bindPopup(
-          `<strong>${escapeHtml(stop.name)}</strong> <small>${escapeHtml(stop.country)}</small><br>${formatDate(stop.arrive)} → ${formatDate(stop.leave)}<br>${stop.nights} nights · ${euro(stop.cost)}${
+          `<strong>${escapeHtml(stop.name)}</strong> <small>${escapeHtml(stop.country)}</small><br>${formatDate(stop.arrive)} → ${formatDate(stop.leave)}<br>${stop.nights} nights · ${money(stop.cost)}${
             stop.notes ? `<br><em>${escapeHtml(stop.notes)}</em>` : ""
           }`
         )
@@ -714,7 +822,7 @@
         opacity: 0.9,
         dashArray: leg.mode === "plane" ? "8 8" : null,
       })
-        .bindTooltip(`${leg.mode} · ${hoursLabel(leg.hours)} · ${euro(leg.cost)}`)
+        .bindTooltip(`${leg.mode} · ${hoursLabel(leg.hours)} · ${money(leg.cost)}`)
         .addTo(tripLayer);
     });
     const fitKey = p.stops.map((s) => s.id).join("-");
@@ -771,6 +879,236 @@
     }
   }
 
+  function withDefaults(data) {
+    return {
+      startDate: /^\d{4}-\d{2}-\d{2}$/.test(data.startDate || "") ? data.startDate : defaultStart(),
+      stops: data.stops,
+      legs: data.legs,
+      travelers: Math.min(20, Math.max(1, Math.round(Number(data.travelers)) || 1)),
+      budget: Number(data.budget) > 0 ? Number(data.budget) : 0,
+      currency: CURRENCIES[data.currency] ? data.currency : "EUR",
+    };
+  }
+
+  // ---------- Undo ----------
+  const undoStack = [];
+
+  function snapshot() {
+    undoStack.push(JSON.stringify(state));
+    if (undoStack.length > 60) undoStack.shift();
+    els.undo.disabled = false;
+  }
+
+  function undo() {
+    if (!undoStack.length) return;
+    const prev = JSON.parse(undoStack.pop());
+    Object.keys(state).forEach((k) => delete state[k]);
+    Object.assign(state, prev);
+    persist();
+    render();
+  }
+
+  // ---------- Sample trips ----------
+  function loadSample(trip) {
+    snapshot();
+    state.stops = trip.cities.map((name) => makeStop(CITIES.find((c) => c.name === name)));
+    state.legs = [];
+    rebuildLegs([]);
+    persist();
+    render();
+  }
+
+  // ---------- Shortest route (first stop stays put) ----------
+  function routeLength(route) {
+    return route.reduce((t, s, i) => (i ? t + haversine(route[i - 1], s) : 0), 0);
+  }
+
+  function optimizeRoute() {
+    if (state.stops.length < 3) {
+      flash(els.optimize, "Need 3+ stops");
+      return;
+    }
+    const d = haversine;
+    const rest = state.stops.slice(1);
+    let route = [state.stops[0]];
+    while (rest.length) {
+      const last = route[route.length - 1];
+      let best = 0;
+      rest.forEach((s, i) => {
+        if (d(last, s) < d(last, rest[best])) best = i;
+      });
+      route.push(rest.splice(best, 1)[0]);
+    }
+    let improved = true;
+    while (improved) {
+      improved = false;
+      for (let i = 1; i < route.length - 1; i += 1) {
+        for (let k = i + 1; k < route.length; k += 1) {
+          const a = route[i - 1], b = route[i], c = route[k], e = route[k + 1];
+          const delta = d(a, c) - d(a, b) + (e ? d(b, e) - d(c, e) : 0);
+          if (delta < -0.01) {
+            route = [...route.slice(0, i), ...route.slice(i, k + 1).reverse(), ...route.slice(k + 1)];
+            improved = true;
+          }
+        }
+      }
+    }
+    const saved = routeLength(state.stops) - routeLength(route);
+    if (saved < 1) {
+      flash(els.optimize, "Already shortest");
+      return;
+    }
+    snapshot();
+    const before = state.stops.slice();
+    state.stops = route;
+    rebuildLegs(before);
+    persist();
+    render();
+    flash(els.optimize, `Saved ${Math.round(saved).toLocaleString("en-GB")} km`);
+  }
+
+  // ---------- Calendar (.ics) export ----------
+  function exportCalendar() {
+    if (!state.stops.length) {
+      flash(els.calendar, "Add a city first");
+      return;
+    }
+    const p = plan();
+    const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
+    const day = (date) => iso(date).replace(/-/g, "");
+    const text = (t) => String(t).replace(/\\/g, "\\\\").replace(/\r?\n/g, "\\n").replace(/([,;])/g, "\\$1");
+    const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Europe Trip Planner//EN", "CALSCALE:GREGORIAN"];
+    const event = (id, props) =>
+      lines.push("BEGIN:VEVENT", `UID:${id}-${stamp}@europe-trip-planner`, `DTSTAMP:${stamp}`, ...props, "END:VEVENT");
+    p.stops.forEach((s, i) => {
+      event(`stop-${i}-${s.id}`, [
+        `DTSTART;VALUE=DATE:${day(s.arrive)}`,
+        `DTEND;VALUE=DATE:${day(s.nights ? s.leave : addDays(iso(s.arrive), 1))}`,
+        `SUMMARY:${text(`${s.name} · ${s.nights} night${s.nights === 1 ? "" : "s"}`)}`,
+        `LOCATION:${text(`${s.name}, ${s.country}`)}`,
+        ...(s.notes ? [`DESCRIPTION:${text(s.notes)}`] : []),
+      ]);
+    });
+    p.legs.forEach((l, i) => {
+      event(`leg-${i}`, [
+        `DTSTART:${day(parseDate(l.date))}T${l.depart.replace(":", "")}00`,
+        `DTEND:${day(addDays(l.date, l.days))}T${l.arriveTime.replace(":", "")}00`,
+        `SUMMARY:${text(`${l.mode[0].toUpperCase()}${l.mode.slice(1)}: ${l.from} → ${l.to}`)}`,
+        `DESCRIPTION:${text(`${l.km} km · about ${hoursLabel(l.hours)} · ~${money(l.cost)} per person`)}`,
+      ]);
+    });
+    lines.push("END:VCALENDAR");
+    const fold = (line) => line.match(/.{1,72}/gu)?.join("\r\n ") || line;
+    const blob = new Blob([lines.map(fold).join("\r\n") + "\r\n"], { type: "text/calendar" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "europe-trip.ics";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    flash(els.calendar, "Downloaded");
+  }
+
+  // ---------- Live exchange rates ----------
+  async function loadRates() {
+    try {
+      const symbols = Object.keys(CURRENCIES).filter((c) => c !== "EUR").join(",");
+      const res = await fetch(`https://api.frankfurter.dev/v1/latest?base=EUR&symbols=${symbols}`);
+      if (!res.ok) throw new Error(res.status);
+      const data = await res.json();
+      Object.entries(data.rates || {}).forEach(([k, v]) => {
+        if (CURRENCIES[k] && Number(v) > 0) rates[k] = Number(v);
+      });
+      ratesNote = `live rate, ${data.date}`;
+      render();
+    } catch {
+      /* keep fallback rates */
+    }
+  }
+
+  // ---------- Weather (forecast if soon, otherwise same dates last year) ----------
+  const weatherCache = new Map();
+  const weatherPending = new Set();
+
+  function weatherKey(stop) {
+    return `${stop.lat.toFixed(2)},${stop.lng.toFixed(2)},${iso(stop.arrive)},${stop.nights}`;
+  }
+
+  function weatherText(stop) {
+    const w = weatherCache.get(weatherKey(stop));
+    if (!w) return "Checking weather…";
+    if (w.error) return "Weather unavailable right now";
+    const icon = w.rainy / w.days > 0.5 ? "🌧" : w.hi >= 25 ? "☀️" : w.hi <= 3 ? "❄️" : "⛅";
+    const rain = w.rainy ? ` · rain ${w.rainy} of ${w.days} day${w.days === 1 ? "" : "s"}` : " · dry";
+    return `${icon} ${w.hi}° / ${w.lo}°C${rain} <small>${w.source}</small>`;
+  }
+
+  function loadWeather(stops) {
+    stops.forEach((stop) => {
+      const key = weatherKey(stop);
+      if (weatherCache.has(key) || weatherPending.has(key)) return;
+      weatherPending.add(key);
+      fetchWeather(stop)
+        .then((w) => weatherCache.set(key, w))
+        .catch(() => weatherCache.set(key, { error: true }))
+        .finally(() => {
+          weatherPending.delete(key);
+          els.itinerary.querySelectorAll(".weather").forEach((el) => {
+            if (el.dataset.weather === key) el.innerHTML = weatherText(stop);
+          });
+        });
+    });
+  }
+
+  async function fetchWeather(stop) {
+    const today = parseDate(iso(new Date()));
+    const span = Math.min(14, Math.max(1, stop.nights));
+    let start = new Date(stop.arrive);
+    let end = addDays(iso(start), span - 1);
+    const soon = start >= today && end <= addDays(iso(today), 15);
+    let url;
+    let source;
+    if (soon) {
+      url = "https://api.open-meteo.com/v1/forecast";
+      source = "forecast";
+    } else {
+      const cutoff = addDays(iso(today), -6);
+      let years = 0;
+      while (end > cutoff || years === 0) {
+        years += 1;
+        start = new Date(stop.arrive);
+        start.setFullYear(start.getFullYear() - years);
+        end = addDays(iso(start), span - 1);
+      }
+      url = "https://archive-api.open-meteo.com/v1/archive";
+      source = `same dates in ${start.getFullYear()}`;
+    }
+    const params = new URLSearchParams({
+      latitude: stop.lat.toFixed(3),
+      longitude: stop.lng.toFixed(3),
+      start_date: iso(start),
+      end_date: iso(end),
+      daily: "temperature_2m_max,temperature_2m_min,precipitation_sum",
+      timezone: "auto",
+    });
+    const res = await fetch(`${url}?${params}`);
+    if (!res.ok) throw new Error(res.status);
+    const { daily } = await res.json();
+    const nums = (arr) => (arr || []).filter((v) => typeof v === "number");
+    const hi = nums(daily?.temperature_2m_max);
+    const lo = nums(daily?.temperature_2m_min);
+    if (!hi.length || !lo.length) return { error: true };
+    const avg = (arr) => Math.round(arr.reduce((t, v) => t + v, 0) / arr.length);
+    return {
+      hi: avg(hi),
+      lo: avg(lo),
+      rainy: nums(daily.precipitation_sum).filter((v) => v >= 1).length,
+      days: hi.length,
+      source,
+    };
+  }
+
   function toBase64Url(text) {
     const bytes = new TextEncoder().encode(text);
     let bin = "";
@@ -793,6 +1131,7 @@
       ]),
       m: state.legs.map((l) => l.mode),
       t: state.legs.map((l) => l.depart || DEFAULT_DEPART),
+      o: [state.travelers, Math.round(state.budget), state.currency],
     };
     return `${location.href.split("#")[0]}#trip=${toBase64Url(JSON.stringify(compact))}`;
   }
@@ -822,7 +1161,7 @@
   function loadShared() {
     const match = location.hash.match(/^#trip=([\w-]+)$/);
     if (!match) return null;
-    history.replaceState(null, "", location.pathname + location.search);
+    window.history.replaceState(null, "", location.pathname + location.search);
     try {
       const data = JSON.parse(fromBase64Url(match[1]));
       const stops = (Array.isArray(data.s) ? data.s : [])
@@ -861,12 +1200,14 @@
         depart: validTime(times[i]) || DEFAULT_DEPART,
       }));
       const startDate = /^\d{4}-\d{2}-\d{2}$/.test(data.d || "") ? data.d : defaultStart();
-      return { startDate, stops, legs };
+      const [travelers, budget, currency] = Array.isArray(data.o) ? data.o : [];
+      return { startDate, stops, legs, travelers, budget, currency };
     } catch {
       return null;
     }
   }
 
   render();
+  loadRates();
   setTimeout(() => map.invalidateSize(), 200);
 })();

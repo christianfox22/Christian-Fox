@@ -25,11 +25,10 @@
           <p class="eyebrow">Multi-city · multi-week</p>
           <h1>Europe trip planner</h1>
         </div>
-        <label class="start-date">
-          Start
-          <input type="date" id="start-date" />
-        </label>
         <div class="actions">
+          <button type="button" class="ghost" id="undo" title="Undo (⌘Z)" disabled>↶ Undo</button>
+          <button type="button" class="ghost" id="optimize" title="Reorder stops for the least travel (first stop stays put)">Shortest route</button>
+          <button type="button" class="ghost" id="calendar" title="Download an .ics file for Apple, Google or Outlook Calendar">Add to calendar</button>
           <button type="button" id="share-trip">Share link</button>
           <button type="button" class="ghost" id="print-trip">Print</button>
           <button type="button" class="ghost" id="reset-trip">Clear trip</button>
@@ -40,6 +39,24 @@
 
       <div class="workspace">
         <aside class="sidebar">
+          <details class="settings" open>
+            <summary>Trip settings</summary>
+            <div class="settings-grid">
+              <label>Start
+                <input type="date" id="start-date" />
+              </label>
+              <label>Travelers
+                <input type="number" id="travelers" min="1" max="20" step="1" />
+              </label>
+              <label>Budget
+                <input type="number" id="budget" min="0" step="50" placeholder="No limit" />
+              </label>
+              <label>Currency
+                <select id="currency"></select>
+              </label>
+            </div>
+            <p class="hint">Rooms are shared by two; food, fun and fares are per person. <span id="rate-note"></span></p>
+          </details>
           <div class="add-panel">
             <label class="search-label">
               Add a city
