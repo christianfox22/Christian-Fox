@@ -134,7 +134,36 @@
     budget: document.getElementById("budget"),
     currency: document.getElementById("currency"),
     rateNote: document.getElementById("rate-note"),
+    miscList: document.getElementById("misc-list"),
+    miscForm: document.getElementById("misc-form"),
+    miscLabel: document.getElementById("misc-label"),
+    miscAmount: document.getElementById("misc-amount"),
+    miscTotal: document.getElementById("misc-total"),
+    miscCurrency: document.getElementById("misc-currency"),
   };
+
+  els.miscForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const label = els.miscLabel.value.trim().slice(0, 80);
+    const amount = Number(els.miscAmount.value);
+    if (!label || !Number.isFinite(amount) || amount <= 0) {
+      (label ? els.miscAmount : els.miscLabel).focus();
+      return;
+    }
+    snapshot();
+    state.misc.push({ id: uid(), label, amount: Math.round((amount / rate()) * 100) / 100 });
+    els.miscLabel.value = "";
+    els.miscAmount.value = "";
+    persist();
+    render();
+    els.miscLabel.focus();
+  });
+  document.querySelectorAll("[data-misc-idea]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      els.miscLabel.value = btn.dataset.miscIdea;
+      els.miscAmount.focus();
+    });
+  });
 
   els.currency.innerHTML = Object.keys(CURRENCIES)
     .map((c) => `<option value="${c}">${c}</option>`)
@@ -181,9 +210,10 @@
     render();
   });
   els.reset.addEventListener("click", () => {
-    if (!state.stops.length) return;
+    if (!state.stops.length && !state.misc.length) return;
     // No confirm needed now that Undo exists.
     snapshot();
+    state.misc = [];
     state.stops = [];
     state.legs = [];
     persist();
@@ -564,7 +594,8 @@
       totalDays,
       stayCost,
       transitCost,
-      totalCost: stayCost + transitCost,
+      miscCost: miscTotal(),
+      totalCost: stayCost + transitCost + miscTotal(),
       transitHours,
       rushed,
       end,
@@ -604,8 +635,9 @@
     const avg = p.totalDays ? p.totalCost / p.totalDays : 0;
     const paceWarn = p.rushed > 0 || (p.stops.length > 0 && p.stayDays / p.stops.length < 2.5);
     const overBudget = state.budget > 0 && p.totalCost > state.budget;
+    const extras = p.miscCost ? ` · incl. ${money(p.miscCost)} misc` : "";
     const budgetLine = !state.budget
-      ? "trip total"
+      ? `trip total${extras}`
       : overBudget
         ? `${money(p.totalCost - state.budget)} over budget`
         : `${money(state.budget - p.totalCost)} left of ${money(state.budget)}`;
@@ -619,6 +651,7 @@
     els.rateNote.textContent =
       state.currency === "EUR" ? "" : `1 EUR = ${rate().toFixed(2)} ${state.currency} · ${ratesNote}`;
     els.undo.disabled = !undoStack.length;
+    renderMisc();
 
     els.stats.innerHTML = `
       <div class="stat"><b>${p.stops.length}</b><span>cities</span></div>
@@ -879,6 +912,66 @@
     }
   }
 
+  function miscTotal() {
+    return state.misc.reduce((t, m) => t + (Number(m.amount) || 0), 0);
+  }
+
+  function renderMisc() {
+    const focused = document.activeElement;
+    const keep =
+      focused && els.miscList.contains(focused)
+        ? `[data-misc-id="${focused.closest("[data-misc-id]")?.dataset.miscId}"] [data-misc-field="${focused.dataset.miscField}"]`
+        : null;
+    els.miscCurrency.textContent = state.currency;
+    els.miscTotal.textContent = state.misc.length ? money(miscTotal()) : "";
+    els.miscList.innerHTML = state.misc
+      .map(
+        (m) => `<li data-misc-id="${m.id}">
+          <input type="text" maxlength="80" data-misc-field="label" value="${escapeHtml(m.label)}" aria-label="Cost name">
+          <input type="number" min="0" step="5" data-misc-field="amount" value="${Math.round(m.amount * rate())}" aria-label="Amount">
+          <button type="button" class="icon-btn" data-misc-remove title="Remove">✕</button>
+        </li>`
+      )
+      .join("");
+    els.miscList.querySelectorAll("[data-misc-id]").forEach((row) => {
+      const item = () => state.misc.find((m) => m.id === row.dataset.miscId);
+      row.querySelector('[data-misc-field="label"]').addEventListener("change", (e) => {
+        const label = e.target.value.trim().slice(0, 80);
+        if (!label || !item()) return;
+        snapshot();
+        item().label = label;
+        persist();
+        setTimeout(render, 0);
+      });
+      row.querySelector('[data-misc-field="amount"]').addEventListener("change", (e) => {
+        const value = Number(e.target.value);
+        if (!item() || !Number.isFinite(value) || value < 0) return;
+        snapshot();
+        item().amount = Math.round((value / rate()) * 100) / 100;
+        persist();
+        setTimeout(render, 0);
+      });
+      row.querySelector("[data-misc-remove]").addEventListener("click", () => {
+        snapshot();
+        state.misc = state.misc.filter((m) => m.id !== row.dataset.miscId);
+        persist();
+        render();
+      });
+    });
+    if (keep) els.miscList.querySelector(keep)?.focus();
+  }
+
+  function cleanMisc(list) {
+    return (Array.isArray(list) ? list : [])
+      .map((m) => ({
+        id: typeof m?.id === "string" ? m.id : uid(),
+        label: String(m?.label ?? "").trim().slice(0, 80),
+        amount: Number(m?.amount),
+      }))
+      .filter((m) => m.label && Number.isFinite(m.amount) && m.amount >= 0)
+      .slice(0, 50);
+  }
+
   function withDefaults(data) {
     return {
       startDate: /^\d{4}-\d{2}-\d{2}$/.test(data.startDate || "") ? data.startDate : defaultStart(),
@@ -887,6 +980,7 @@
       travelers: Math.min(20, Math.max(1, Math.round(Number(data.travelers)) || 1)),
       budget: Number(data.budget) > 0 ? Number(data.budget) : 0,
       currency: CURRENCIES[data.currency] ? data.currency : "EUR",
+      misc: cleanMisc(data.misc),
     };
   }
 
@@ -1132,12 +1226,13 @@
       m: state.legs.map((l) => l.mode),
       t: state.legs.map((l) => l.depart || DEFAULT_DEPART),
       o: [state.travelers, Math.round(state.budget), state.currency],
+      x: state.misc.map((m) => [m.label, Math.round(m.amount * 100) / 100]),
     };
     return `${location.href.split("#")[0]}#trip=${toBase64Url(JSON.stringify(compact))}`;
   }
 
   async function shareTrip() {
-    if (!state.stops.length) {
+    if (!state.stops.length && !state.misc.length) {
       flash(els.share, "Add a city first");
       return;
     }
@@ -1188,7 +1283,8 @@
         })
         .filter(Boolean)
         .filter((s, i, all) => all.findIndex((o) => sameCity(o, s)) === i);
-      if (!stops.length) return null;
+      const misc = cleanMisc((Array.isArray(data.x) ? data.x : []).map(([label, amount]) => ({ label, amount })));
+      if (!stops.length && !misc.length) return null;
       const saved = load();
       if (saved?.stops?.length && !window.confirm("Replace your saved trip with the shared one?")) {
         return null;
@@ -1201,7 +1297,7 @@
       }));
       const startDate = /^\d{4}-\d{2}-\d{2}$/.test(data.d || "") ? data.d : defaultStart();
       const [travelers, budget, currency] = Array.isArray(data.o) ? data.o : [];
-      return { startDate, stops, legs, travelers, budget, currency };
+      return { startDate, stops, legs, travelers, budget, currency, misc };
     } catch {
       return null;
     }

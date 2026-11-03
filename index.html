@@ -57,6 +57,25 @@
             </div>
             <p class="hint">Rooms are shared by two; food, fun and fares are per person. <span id="rate-note"></span></p>
           </details>
+          <details class="settings misc" open>
+            <summary>Misc costs <span id="misc-total"></span></summary>
+            <ul class="misc-list" id="misc-list"></ul>
+            <form class="misc-form" id="misc-form">
+              <input type="text" id="misc-label" maxlength="80" placeholder="Travel insurance, eSIM, rail pass…" aria-label="Cost name" />
+              <label class="misc-amount"><span id="misc-currency">EUR</span>
+                <input type="number" id="misc-amount" min="0" step="5" placeholder="0" aria-label="Amount" />
+              </label>
+              <button type="submit">Add</button>
+            </form>
+            <div class="misc-ideas">
+              <button type="button" data-misc-idea="Travel insurance">Insurance</button>
+              <button type="button" data-misc-idea="eSIM / data">eSIM</button>
+              <button type="button" data-misc-idea="Rail pass">Rail pass</button>
+              <button type="button" data-misc-idea="Flights home">Flights home</button>
+              <button type="button" data-misc-idea="Souvenirs">Souvenirs</button>
+              <button type="button" data-misc-idea="Emergency buffer">Buffer</button>
+            </div>
+          </details>
           <div class="add-panel">
             <label class="search-label">
               Add a city

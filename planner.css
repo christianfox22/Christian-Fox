@@ -480,6 +480,81 @@ textarea:focus-visible {
   margin-bottom: 0.6rem;
 }
 
+#misc-total {
+  float: right;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 0.95rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+}
+
+.misc-list {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.misc-list li,
+.misc-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6.5rem auto;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.misc-list input,
+.misc-form input {
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  padding: 0.35rem 0.5rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.misc-form {
+  margin-top: 0.5rem;
+}
+
+.misc-amount {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.misc-form button {
+  padding: 0.38rem 0.75rem;
+}
+
+.misc-ideas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.misc-ideas button {
+  background: transparent;
+  color: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--line);
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 0.2rem 0.5rem;
+}
+
+.settings .misc-ideas button:hover {
+  color: var(--green);
+  background: #f6f1e8;
+}
+
 .samples {
   display: grid;
   gap: 0.45rem;
@@ -690,7 +765,9 @@ button.ghost:disabled:hover {
     height: auto;
   }
 
-  .settings,
+  .settings:not(.misc),
+  .misc-form,
+  .misc-ideas,
   .actions,
   .add-panel,
   .map-wrap,
