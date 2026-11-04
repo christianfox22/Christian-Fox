@@ -8,7 +8,7 @@ Files: `index.html`, `planner.css`, `planner.js`, and `cities.js` (built-in citi
 
 ## Features
 
-- Search any city, town or village in Europe (via the free [Photon](https://photon.komoot.io) OpenStreetMap search), or click one of the 98 built-in cities on the map.
+- Search any city, town or village in Europe (via the free [Photon](https://photon.komoot.io) OpenStreetMap search), or click one of the 181 built-in cities on the map.
 - Set nights, stay/food/play budget per city, and notes.
 - Pick train, plane, bus, car, or ferry for each leg and set a departure time; travel time, arrival, and fare are estimated from distance.
 - Each leg links out to real schedules and prices: Google Flights, Google train/bus/ferry results, Google Maps driving, and Rome2Rio.

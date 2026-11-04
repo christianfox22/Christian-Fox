@@ -14,7 +14,10 @@
   const LAND_MODES = ["train", "bus", "car"];
   // Places you can't reach overland from the mainland (UK counts as mainland via the tunnel).
   const ISLAND_COUNTRIES = { Iceland: "iceland", Ireland: "ireland", Malta: "malta", Cyprus: "cyprus" };
-  const ISLAND_CITIES = { Santorini: "santorini" };
+  const ISLAND_CITIES = {
+    Santorini: "santorini", Mykonos: "mykonos", Corfu: "corfu", Chania: "crete", Heraklion: "crete",
+    Palma: "mallorca", Funchal: "madeira", Belfast: "ireland",
+  };
 
   // Rough daily cost guesses (EUR) for countries with no city in the built-in list.
   const EXTRA_COUNTRY_COST = {
